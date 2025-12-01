@@ -15,16 +15,25 @@ namespace Blackjack
         {
             var game = new BlackjackGameEng();
 
+            game.AskForStartingBankroll();
+            game.AskForBetSetting();
+
             while (true)
             {
                 game.Play();
 
-                System.Console.WriteLine("\n Play again? (y/n): ");
-                if(Console.ReadLine().ToLower() != "y")
+                System.Console.WriteLine("\n Play again? (y/n): (Press b to add money to BankRoll)");
+                string? input = Console.ReadLine().ToLower() ?? "";
+
+                if(input == "b")
+                {
+                    game.AddToBankroll();
+                }
+                if(input == "n")
                 {
                     break;
                 }
-                
+
             }
         }
     }

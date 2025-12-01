@@ -35,6 +35,7 @@ namespace Blackjack
             }
             Card card = cards[0];
             cards.RemoveAt(0);
+
             return card;
         }
     }
