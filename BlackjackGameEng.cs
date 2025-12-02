@@ -12,6 +12,9 @@ namespace Blackjack
         //public List<Player> players;
         Hand ? player;
         Hand ? dealer;
+
+        private List<Hand> SplitHands = new List<Hand>();
+        private List<int> SplitBets = new List<int>();
         public int RunningCount {get; private set;} = 0;
         public int BankRoll {get; private set;} = 0;
         private int BaseBet = 0;
@@ -92,7 +95,142 @@ namespace Blackjack
                 System.Console.WriteLine("Invalid amount.  Try again.");
             }
         }
+        private Card DealCard()
+        {
+            Card c = deck.Deal();
+            UpdateCount(c);
+            return c;
+        }
 
+    //  Deal a card to a specific hand
+        private void DealToHand(Hand h)
+        {
+            h.AddCard(DealCard());
+        }
+        private void HandleSplit(ref Hand originalHand, ref int originalBet)
+        {
+            if(originalHand.Cards.Count ==2 && 
+            originalHand.Cards[0].Rank == originalHand.Cards[1].Rank)
+            {
+                while (true)
+                {              
+                    System.Console.WriteLine(" Split ?  (y/n)");
+                    string? ans = Console.ReadLine().ToLower();
+
+                    if(ans == "y" && BankRoll < originalBet * 2){
+                        System.Console.WriteLine(" You don't have enough to split.");
+                        System.Console.WriteLine(" Add more to Bankroll?  (y/n)");
+                        string? ans2 = Console.ReadLine().ToLower();
+
+                        if (ans2 == "y")
+                        {
+                            AddToBankroll();
+                        }
+                        else if (ans2 == "n") {break;}
+                    }
+                    else if(ans =="n"){break;}
+
+                    else if(ans == "y")
+                    {
+                        Hand hand1 = new Hand();
+                        Hand hand2 = new Hand();
+
+                        hand1.AddCard(originalHand.Cards[0]);
+                        hand2.AddCard(originalHand.Cards[1]);
+
+                        DealToHand(hand1); // added DTH after 1st Major refactor
+                        DealToHand(hand2);
+
+                        SplitHands.Clear();
+                        SplitHands.Add(hand1);
+                        SplitHands.Add(hand2);
+
+                        SplitBets.Clear();
+                        SplitBets.Add(originalBet);
+                        SplitBets.Add(originalBet);
+                        break;
+                    }
+
+                    else
+                    {
+                    System.Console.WriteLine("Invalid Response - Choose y or n");
+                    }
+                }
+            }
+            
+        }        
+        private void PlayerTurn(Hand hand, ref int bet)
+        {
+            bool firstMove = true;
+            while (true)
+            {
+
+                Console.Write("Hit or Stand or Double Down (DD on first move only)? (h/s/d)");
+                string? choice = Console.ReadLine();
+                
+                if (string.IsNullOrWhiteSpace(choice))
+                    continue;   
+
+                choice = choice.ToLower();
+
+                if(choice == "h")
+                {
+                    //firstMove = false;
+                    //var cntdCard = deck.Deal();
+                    //UpdateCount(cntdCard);
+                    //player.AddCard(cntdCard);
+                    DealToHand(hand);
+
+
+                    if(hand.GetValue() > 21)
+                    {
+                        Console.WriteLine("Buuuusted!  Dealer Wins");
+                        //BankRoll -= CurrentBet;
+                        Console.WriteLine($"Your Bankroll is {BankRoll}");
+                        //UpdateCount(dealer.Cards[1]);
+                        //Console.WriteLine($"\n*** Running Count is: {RunningCount} (Dealer shows bottom card) ***\n");
+                        return;
+                    }
+                    Console.WriteLine($"\nYour hand: {hand}");
+                    
+                    Console.WriteLine($"\n*** Running Count is: {RunningCount} ***\n");
+                }
+                else if (choice == "s")
+                {
+                    break;
+                }
+                else if (choice == "d" && firstMove)
+                {
+                    if(BankRoll < CurrentBet * 2)
+                    {
+                        System.Console.WriteLine("You don't have enough to double down");
+                        System.Console.WriteLine("Would you like to add to your bankroll? y/n");
+                        if(Console.ReadLine().ToLower() == "y")
+                        {
+                            AddToBankroll();
+                        }
+                    }
+                    //BankRoll -= BaseBet;
+                    bet = bet*2; // since bet is a ref, must use 'bet' to update in the List
+
+                    Console.WriteLine($"You doubled down! New bet: ${bet}");
+                    System.Console.WriteLine("You get one card");
+
+                    DealToHand(hand);
+                    Console.WriteLine($"\nYour hand: {hand}");
+                    if(hand.GetValue() > 21)
+                    {
+                        Console.WriteLine("Buuuusted!  Dealer Wins");
+                        //BankRoll -= CurrentBet;
+                        //UpdateCount(dealer.Cards[1]);
+                        return;
+                    }
+
+                    break; //one card for Double Downs
+                }
+                firstMove = false;
+            }
+        }
         public void Play(){
 
             if(deck.Count < 10)
@@ -119,125 +257,130 @@ namespace Blackjack
             //don't put this last card in the count since it's hidden.
             dealer.AddCard(deck.Deal());
 
-            Console.WriteLine($"Dealer shows: {dealer.Cards[0]}");
+            Console.WriteLine($"\n###############################################");
+            Console.WriteLine($"\nDealer shows: {dealer.Cards[0]}");
             Console.WriteLine($"Player shows: {player}");
+            System.Console.WriteLine($"*** Running Count is: {RunningCount} ***");
+            Console.WriteLine($"\n###############################################");
 
-            System.Console.WriteLine($"\n*** Running Count is: {RunningCount} ***\n");
+            CurrentBet = BaseBet;
+            HandleSplit(ref player, ref CurrentBet);
 
-            bool firstMove = true;
-            while (true)
+            if(SplitHands.Count > 0)
             {
-                CurrentBet = BaseBet;
-                Console.Write("Hit or Stand or Double Down (DD on first move only)? (h/s/d)");
-                string? choice = Console.ReadLine();
-                
-                if (string.IsNullOrWhiteSpace(choice))
-                    continue;   
-
-                choice = choice.ToLower();
-
-                if(choice == "h")
+                for(int i =0; i < SplitHands.Count; i++)
                 {
-                    var cntdCard = deck.Deal();
-                    UpdateCount(cntdCard);
-                    player.AddCard(cntdCard);
-                    Console.WriteLine($"\nYour hand: {player}");
-                    
-                    Console.WriteLine($"\n*** Running Count is: {RunningCount} ***\n");
+                    Hand splitHand = SplitHands[i];
+                    int splitBet = SplitBets[i];
 
-                    if(player.GetValue() > 21)
-                    {
-                        Console.WriteLine("Buuuusted!  Dealer Wins");
-                        BankRoll -= CurrentBet;
-                        Console.WriteLine($"Your Bankroll is {BankRoll}");
-                        UpdateCount(dealer.Cards[1]);
-                        Console.WriteLine($"\n*** Running Count is: {RunningCount} (Dealer shows bottom card) ***\n");
-                        return;
-                    }
+                    System.Console.WriteLine($"\nPlaying Hand {i+1}: {splitHand}");
+                    PlayerTurn(splitHand, ref splitBet);
+
+                    SplitBets[i] = splitBet;
+
                 }
-                else if (choice == "s")
-                {
-                    break;
-                }
-                else if (choice == "d" && firstMove)
-                {
-                    if(BankRoll < CurrentBet * 2)
-                    {
-                        System.Console.WriteLine("You don't have enough to double down");
-                        System.Console.WriteLine("Would you like to add to your bankroll? y/n");
-                        if(Console.ReadLine().ToLower() == "y")
-                        {
-                            AddToBankroll();
-                        }
-                    }
-                    //BankRoll -= BaseBet;
-                    CurrentBet = BaseBet*2;
-
-                    Console.WriteLine($"You doubled down! New bet: ${CurrentBet}");
-                    System.Console.WriteLine("You get one card");
-
-                    var cntdCard = deck.Deal();
-                    UpdateCount(cntdCard);
-                    player.AddCard(cntdCard);
-                    Console.WriteLine($"\nYour hand: {player}");
-                    if(player.GetValue() > 21)
-                    {
-                        Console.WriteLine("Buuuusted!  Dealer Wins");
-                        BankRoll -= CurrentBet;
-                        Console.WriteLine($"Your Bankroll is {BankRoll}");
-                        UpdateCount(dealer.Cards[1]);
-                        Console.WriteLine($"\n*** Running Count is: {RunningCount} (Dealer shows bottom card) ***\n");
-                        return;
-                    }
-
-                    break;
-                }
+            }
+            else
+            {
+                PlayerTurn(player, ref CurrentBet);
             }
 
             Console.WriteLine($"Dealers' hand: {dealer}");
             UpdateCount(dealer.Cards[1]);
-            Console.WriteLine($"\n*** Running Count is: {RunningCount} ***");
+            Console.WriteLine($"\n*** Running Count is: {RunningCount} (Dealer shows bottom card) ***\n");
+            //Console.WriteLine($"\n*** Running Count is: {RunningCount} ***");
 
             while(dealer.GetValue() < 17)
             {
-                var cntdCard = deck.Deal();
-                UpdateCount(cntdCard);
-                dealer.AddCard(cntdCard);
+                //var cntdCard = deck.Deal();
+                //UpdateCount(cntdCard);
+                //dealer.AddCard(cntdCard);
+                DealToHand(dealer);
                 Console.WriteLine($"Dealer hits: {dealer}");
                 Console.WriteLine($"\n*** Running Count is: {RunningCount} ***\n");
             }
             if(dealer.GetValue()> 21)
             {
                 System.Console.WriteLine("Dealer busts.  You WIN!");
-                BankRoll+= CurrentBet;                        
-                Console.WriteLine($"Your Bankroll is {BankRoll}");
-                return;
+                //BankRoll+= CurrentBet;                        
+                //Console.WriteLine($"Your Bankroll is {BankRoll}");
+                //return;
             }
+            if(SplitHands.Count > 0)
+            {
+                for(int i =0; i< SplitHands.Count; i++)
+                {
+                    Hand splitHand = SplitHands[i];
+                    int bet = SplitBets[i];
 
-            int p = player.GetValue();
-            int d = dealer.GetValue();
+                    System.Console.WriteLine($"\n Hand {i+1}: {splitHand}");
+                    EvaluateHand(splitHand, bet);
 
+                }
+
+            }
+            else
+            {
+                EvaluateHand(player, CurrentBet);
+            }
+            Console.WriteLine($"\n$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
             Console.WriteLine($"\nFinal Hands:");
-            Console.WriteLine($"Player: {player}");
+
+            if(SplitHands.Count > 0)
+            {
+                foreach(var hand in SplitHands)
+                {
+                    Console.WriteLine($"Player: {hand}");
+                }
+                SplitHands.Clear();
+                SplitBets.Clear();
+            }
+            else
+            {
+                Console.WriteLine($"Player: {player}");
+            }
+            //Console.WriteLine($"Player: {player}");
             Console.WriteLine($"Dealer: {dealer}");
 
-            if (p > d) 
+            System.Console.WriteLine($"Current Bankroll = {BankRoll}");
+            Console.WriteLine($"\n$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+            //EvaluateHand(player, CurrentBet);
+
+
+        }
+
+        public void EvaluateHand(Hand playerHand, int bet)
+        {             
+            int p = playerHand.GetValue();
+            int d = dealer.GetValue();
+            //UpdateCount(dealer.Cards[1]);
+            //Console.WriteLine($"\n*** Running Count is: {RunningCount} (Dealer shows bottom card) ***\n");
+
+            if (p > 21)
+            {
+                System.Console.WriteLine($":(  Busted. You lose: {bet}");
+                BankRoll -= bet;
+            }
+
+            else if (d >21 || p > d) 
             {
                 Console.WriteLine("You win!");
-                BankRoll += CurrentBet;
+                BankRoll += bet;
                 Console.WriteLine($"Bankroll = {BankRoll}");
             }
             else if (p < d) 
             {
                 Console.WriteLine("Dealer wins.");
-                BankRoll -= CurrentBet;
+                BankRoll -= bet;
                 Console.WriteLine($"Bankroll = {BankRoll}");
             }
             else {
                 Console.WriteLine("Push (tie).");    
                 Console.WriteLine($"Bankroll = {BankRoll}");     
             }   
-            CurrentBet = BaseBet;
         }
     }
+        
 }
+
+

@@ -24,6 +24,7 @@ namespace Blackjack
 
                 System.Console.WriteLine("\n Play again? (y/n): (Press b to add money to BankRoll)");
                 string? input = Console.ReadLine().ToLower() ?? "";
+                System.Console.WriteLine("\n ******************************************************");
 
                 if(input == "b")
                 {
